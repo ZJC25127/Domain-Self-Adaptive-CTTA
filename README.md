@@ -93,6 +93,12 @@ The copy intentionally excludes TENT, CoTTA, ViDA, pretraining scripts,
 visualization scripts, historical logs, analysis artifacts, and unrelated
 dataset code.
 
+## License
+
+Original project code is released under the MIT License. Some model code is
+adapted from third-party projects; see `THIRD_PARTY_NOTICES.md` and retain
+those projects' respective license terms.
+
 ## Citation
 
 ```bibtex
