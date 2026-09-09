@@ -104,8 +104,6 @@ def best_method_args(config_name="best", overrides=None):
             "dynamic_entropy_warmup": 5,
             "dynamic_entropy_cold_start": 0.9,
             "legacy_variance": False,
-            "aug_loss_weight": 0.0,
-            "aug_objective": "separate",
             "grad_clip_norm": 0.0,
             "restore_prob": 0.0,
             "sam_rho": 0.0,
@@ -113,8 +111,6 @@ def best_method_args(config_name="best", overrides=None):
             "eata_entropy_weighting": True,
             "eata_weight_scale": 1.25,
             "anchor_reg_weight": 0.2,
-            "aug_view_ratio": 0.2,
-            "n_views": 3,
             "entropy_ratio": 1.0,
             "high_thresh": 2.5,
             "low_thresh": 1.5,
@@ -129,7 +125,6 @@ def best_method_args(config_name="best", overrides=None):
         if config_name == "imagenetc_best":
             values.update({
                 "adapter_dropout": 0.1,
-                "aug_loss_weight": 0.0,
                 "entropy_ratio": 0.9,
                 "domain_feature_size": 72,
             })
@@ -146,8 +141,6 @@ def best_method_args(config_name="best", overrides=None):
             "dynamic_entropy_warmup": 5,
             "dynamic_entropy_cold_start": 0.9,
             "legacy_variance": False,
-            "aug_loss_weight": 1.0,
-            "aug_objective": "separate",
             "grad_clip_norm": 0.0,
             "restore_prob": 0.0,
             "sam_rho": 0.0,
@@ -155,8 +148,6 @@ def best_method_args(config_name="best", overrides=None):
             "eata_entropy_weighting": False,
             "eata_weight_scale": 1.0,
             "anchor_reg_weight": 0.0,
-            "aug_view_ratio": 0.2,
-            "n_views": 3,
             "entropy_ratio": 0.6,
             "high_thresh": 2.5,
             "low_thresh": 1.5,

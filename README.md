@@ -59,12 +59,6 @@ vit_source_finetuned_imagenet_lr0.0001_freeze_True_epoch8_scalar10.0_.pt
 
 [下载 MoE 预热 checkpoint](https://huggingface.co/jianchao123/Domain-Self-Adaptive-CTTA/resolve/main/vit_source_finetuned_imagenet_lr0.0001_freeze_True_epoch8_scalar10.0_.pt)
 
-实验机上该 checkpoint 的原始位置为：
-
-```text
-/data1/zjc/tta_datasets/checkpoints/imagenet/pretrain3/vit_source_finetuned_imagenet_lr0.0001_freeze_True_epoch8_scalar10.0_.pt
-```
-
 ## 数据准备
 
 `--data_root` 需要包含 ImageNet+、ImageNet++ 和 ImageNet-C 数据：
@@ -149,14 +143,6 @@ export IMAGENET_DATA_ROOT=/path/to/tta_datasets
 export MOE_CHECKPOINT=/path/to/vit_source_finetuned_imagenet_lr0.0001_freeze_True_epoch8_scalar10.0_.pt
 ```
 
-当前图像预处理为：
-
-```text
-Resize(256) -> CenterCrop(224) -> ToTensor()
-```
-
-ImageNet-C 入口使用其原始的 224 x 224 resize 处理和 3 views 输入。
-
 ## 项目文件
 
 - `imagenetc.py`：ImageNet-C 入口。
@@ -167,8 +153,6 @@ ImageNet-C 入口使用其原始的 224 x 224 resize 处理和 3 views 输入。
 - `metadata/`：ImageNet-C 的样本顺序和标签映射元数据。
 - `robustbench/model_zoo/`：当前 ViT 所需的模型实现。
 - `cfgs/vit/moe_new.yaml`：模型和优化器基础配置。
-
-项目不包含 TENT、CoTTA、ViDA、预训练脚本、可视化脚本、历史日志和数据集副本。
 
 ## 许可证
 

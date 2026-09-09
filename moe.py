@@ -34,8 +34,7 @@ class MOE(nn.Module):
     """
     def __init__(self, model, optimizer, steps=1, episodic=False, ema=0.99, ema_moe = 0.99,
                  rst_m=0.1, legacy_variance=False, class_entropy_weight=0.0,
-                 aug_loss_weight=1.0, aug_objective="separate", grad_clip_norm=0.0,
-                 restore_prob=0.0, sam_rho=0.0, aug_view_ratio=0.2,
+                 grad_clip_norm=0.0, restore_prob=0.0, sam_rho=0.0,
                  redundancy_margin=0.0,
                  eata_entropy_weighting=False,
                  eata_weight_scale=1.0,
@@ -61,8 +60,6 @@ class MOE(nn.Module):
         self.rst = rst_m  
         self.legacy_variance = legacy_variance
         self.class_entropy_weight = class_entropy_weight
-        self.aug_loss_weight = aug_loss_weight
-        self.aug_objective = aug_objective
         self.grad_clip_norm = grad_clip_norm
         self.restore_prob = restore_prob
         self.sam_rho = sam_rho
@@ -71,7 +68,6 @@ class MOE(nn.Module):
         self.eata_weight_scale = eata_weight_scale
         self.anchor_reg_weight = anchor_reg_weight
         self.current_model_probs = None
-        self.aug_view_ratio = aug_view_ratio
         self.entropy_ratio = entropy_ratio
         self.high_thresh = high_thresh
         self.low_thresh = low_thresh
@@ -411,11 +407,7 @@ class MOE(nn.Module):
             self.domain_class += 1
             self.batch = 1
 
-        if x.dim() == 5:
-            x1 = x[:, 0, :, :, :]
-            x2 = x[:, 1:, :, :, :].reshape(-1, 3, 224, 224)
-        else:
-            x1 = x
+        x1 = x
 
         centers_before = len(self.class_centers)
 
@@ -592,34 +584,6 @@ class MOE(nn.Module):
                     entropys0.detach().cpu().tolist()
                 )
 
-            # 增强样本
-            entropys_arg = None
-            if x.dim() == 5:
-                # Keep the augmented forward (and its RNG consumption) when
-                # its loss is disabled, but avoid retaining a graph that can
-                # never contribute to the optimizer step.
-                if self.aug_loss_weight == 0.0:
-                    with torch.no_grad():
-                        outputs_arg = self.model(x2)
-                else:
-                    outputs_arg = self.model(x2)
-                teacher_outputs_arg = outputs_arg
-                if self.fix_ema_teacher:
-                    with torch.no_grad():
-                        teacher_outputs_arg = self.model_ema(x2)
-                adapt_outputs_arg = (outputs_arg if class_indices is None
-                                     else outputs_arg[:, class_indices])
-                adapt_teacher_outputs_arg = (
-                    teacher_outputs_arg if class_indices is None
-                    else teacher_outputs_arg[:, class_indices]
-                )
-                entropys_arg0 = entropy_fn(
-                    adapt_outputs_arg, adapt_teacher_outputs_arg
-                )
-                num_aug_selected = max(1, int(entropys_arg0.size(0) * self.aug_view_ratio))
-                filter_ids_arg = torch.argsort(entropys_arg0, descending=False)[:num_aug_selected]
-                entropys_arg = entropys_arg0[filter_ids_arg]
-
             # 损失优化
             if (min_dist < low_thresh or self.update > 0) and entropys.numel() > 0:
                 loss0 = None
@@ -638,24 +602,7 @@ class MOE(nn.Module):
                         sample_loss = (entropys * confidence_weight).mean(0)
                     else:
                         sample_loss = entropys.mean(0)
-                    aug_loss = entropys_arg.mean(0) if entropys_arg is not None else 0.0
-                    if self.aug_objective == "marginal" and x.dim() == 5:
-                        batch_size = outputs.shape[0]
-                        num_aug = outputs_arg.shape[0] // batch_size
-                        marginal_original = adapt_outputs
-                        marginal_augmented = adapt_outputs_arg
-                        original_probs = marginal_original.softmax(dim=1).unsqueeze(1)
-                        augmented_probs = marginal_augmented.softmax(dim=1).reshape(
-                            batch_size, num_aug, outputs.shape[1]
-                        )
-                        marginal_probs = torch.cat(
-                            [original_probs, augmented_probs], dim=1
-                        ).mean(dim=1)
-                        aug_loss = -(
-                            marginal_probs
-                            * marginal_probs.clamp_min(1e-8).log()
-                        ).sum(dim=1)[intersection_ids].mean(0)
-                    loss = sample_loss + self.aug_loss_weight * aug_loss
+                    loss = sample_loss
 
                 # Minimize the sample entropy while maximizing entropy of the
                 # batch-level marginal class distribution.
@@ -704,44 +651,6 @@ class MOE(nn.Module):
                         sam_loss = (sam_entropys * sam_weights).mean(0)
                     else:
                         sam_loss = sam_entropys.mean(0)
-                    if x.dim() == 5:
-                        outputs_arg_sam = model(x2)
-                        teacher_outputs_arg_sam = outputs_arg_sam
-                        if self.fix_ema_teacher:
-                            teacher_outputs_arg_sam = teacher_outputs_arg
-                        adapt_outputs_arg_sam = (
-                            outputs_arg_sam if class_indices is None
-                            else outputs_arg_sam[:, class_indices]
-                        )
-                        adapt_teacher_outputs_arg_sam = (
-                            teacher_outputs_arg_sam if class_indices is None
-                            else teacher_outputs_arg_sam[:, class_indices]
-                        )
-                        entropys_arg_sam = entropy_fn(
-                            adapt_outputs_arg_sam,
-                            adapt_teacher_outputs_arg_sam,
-                        )
-                        aug_loss_sam = entropys_arg_sam[filter_ids_arg].mean(0)
-                        if self.aug_objective == "marginal":
-                            batch_size = outputs_sam.shape[0]
-                            num_aug = outputs_arg_sam.shape[0] // batch_size
-                            marginal_original_sam = adapt_outputs_sam
-                            marginal_augmented_sam = (
-                                outputs_arg_sam if class_indices is None
-                                else outputs_arg_sam[:, class_indices]
-                            )
-                            original_probs = marginal_original_sam.softmax(dim=1).unsqueeze(1)
-                            augmented_probs = marginal_augmented_sam.softmax(dim=1).reshape(
-                                batch_size, num_aug, outputs_sam.shape[1]
-                            )
-                            marginal_probs = torch.cat(
-                                [original_probs, augmented_probs], dim=1
-                            ).mean(dim=1)
-                            aug_loss_sam = -(
-                                marginal_probs
-                                * marginal_probs.clamp_min(1e-8).log()
-                            ).sum(dim=1)[intersection_ids].mean(0)
-                        sam_loss = sam_loss + self.aug_loss_weight * aug_loss_sam
                     sam_loss = sam_loss - self.class_entropy_weight * batch_class_entropy(adapt_outputs_sam)
                     sam_loss = sam_loss + self.anchor_reg_weight * self._source_anchor_regularization(model)
                     sam_loss.backward()
@@ -783,14 +692,12 @@ class MOE(nn.Module):
                 standard_ema = self._predict_without_adapter_dropout(x1)
 
             logger.info(
-                "adapt diagnostics: selected=%d/%d, augmented_selected=%d/%d, "
+                "adapt diagnostics: selected=%d/%d, "
                 "entropy_mean=%.4f, entropy_min=%.4f, entropy_max=%.4f, "
                 "entropy_thresh=%.4f, entropy_domain=%d, entropy_history=%d, "
                 "dynamic_ready=%s, centers=%d, cooldown=%d, optimized=%s",
                 a,
                 entropys0.size(0),
-                0 if entropys_arg is None else entropys_arg.size(0),
-                0 if entropys_arg is None else x2.size(0),
                 entropys0.mean().item(),
                 entropys0.min().item(),
                 entropys0.max().item(),

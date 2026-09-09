@@ -32,7 +32,7 @@ class ImageNetCDataset(Dataset):
     """ImageNet-C samples in the original RobustBench evaluation order."""
 
     def __init__(self, data_root, corruption, severity, num_examples,
-                 metadata_root, n_views=3):
+                 metadata_root):
         self.root = os.path.join(data_root, "ImageNet-C", corruption, str(severity))
         ids_path = os.path.join(metadata_root, "imagenet_test_image_ids.txt")
         map_path = os.path.join(metadata_root, "imagenet_class_to_id_map.json")
@@ -51,7 +51,6 @@ class ImageNetCDataset(Dataset):
             transforms.Resize((224, 224), interpolation=transforms.InterpolationMode.BILINEAR),
             transforms.ToTensor(),
         ])
-        self.n_views = n_views
 
     def __len__(self):
         return len(self.samples)
@@ -61,7 +60,7 @@ class ImageNetCDataset(Dataset):
         with open(path, "rb") as handle:
             image = Image.open(handle).convert("RGB")
         view = self.transform(image)
-        return torch.stack([view for _ in range(self.n_views)]), target
+        return view, target
 
 
 def evaluate_corruption(model, name, dataset, batch_size, num_workers,
@@ -172,7 +171,7 @@ def main():
     for corruption_id, corruption in enumerate(CORRUPTIONS):
         dataset = ImageNetCDataset(
             args.data_root, corruption, args.severity, args.num_examples,
-            args.metadata_root, n_views=moe_args.n_views,
+            args.metadata_root,
         )
         if corruption_id == 0:
             model.reset()
