@@ -53,10 +53,14 @@ def build_config(save_dir, config_name="best", overrides=None,
             setattr(cfg.TEST, field, int(getattr(cfg.TEST, field)))
     cfg.TEST.adapter_scalar = float(cfg.TEST.adapter_scalar)
 
-    if config_name == "best":
+    if config_name in {"best", "imagenetc_best"}:
         cfg.TEST.adapter_scalar = 14.0
         cfg.OPTIM.BETA = 0.7
         cfg.OPTIM.MOELR = 3e-5
+        if config_name == "imagenetc_best":
+            cfg.TEST.adapter_scalar = 10.0
+            cfg.OPTIM.BETA = 0.8
+            cfg.OPTIM.MOELR = 1e-5
     elif config_name == "original":
         cfg.TEST.adapter_scalar = 10.0
         cfg.OPTIM.BETA = 0.9
@@ -87,7 +91,7 @@ def build_config(save_dir, config_name="best", overrides=None,
 
 def best_method_args(config_name="best", overrides=None):
     """Return the MoE options used by the two online protocol entry points."""
-    if config_name == "best":
+    if config_name in {"best", "imagenetc_best"}:
         values = {
             "shared_ratio": 0.8,
             "adapter_dropout": 0.05,
@@ -122,6 +126,13 @@ def best_method_args(config_name="best", overrides=None):
             "new_domain_init": "zero",
             "moe_layer_mode": "all",
         }
+        if config_name == "imagenetc_best":
+            values.update({
+                "adapter_dropout": 0.1,
+                "aug_loss_weight": 0.0,
+                "entropy_ratio": 0.9,
+                "domain_feature_size": 72,
+            })
     elif config_name == "original":
         values = {
             "shared_ratio": 0.9,

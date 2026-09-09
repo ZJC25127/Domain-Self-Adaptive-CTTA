@@ -1,3 +1,4 @@
+
 # Clean ImageNet MoE Project
 
 This directory is the minimal runnable copy for the paper method:
@@ -17,6 +18,21 @@ The code was tested with Python 3.9, CUDA 11.x, and the packages listed in
 the CUDA version on your machine.
 
 ## Entry points
+
+ImageNet-C:
+
+```bash
+CUDA_VISIBLE_DEVICES=0 python imagenetc.py \
+  --data_root /path/to/tta_datasets \
+  --checkpoint /path/to/source_checkpoint.pt \
+  --save_dir /path/to/results/imagenetc
+```
+
+The ImageNet-C entry uses severity 5, the original 15-corruption order, 5,000
+images per corruption, batch size 50, and one update step per batch. It resets
+only before the first corruption and keeps the adapted model across the
+remaining corruptions. Its default `best` preset is the reported ImageNet-C
+configuration; use `--config original` for the original settings.
 
 ImageNet+:
 
@@ -81,10 +97,21 @@ should be the ViT-B/16 source checkpoint used by the experiments. The
 checkpoint will be hosted in the companion Hugging Face repository:
 `https://huggingface.co/ZJC25127/Domain-Self-Adaptive-CTTA`.
 
+For ImageNet-C, also place the dataset at:
+
+```text
+tta_datasets/ImageNet-C/<corruption>/<severity>/<synset>/<image>.JPEG
+```
+
+The ImageNet-C metadata files shipped in `metadata/` preserve the standard
+50,000-image ImageNet validation order. The runner selects the first 5,000
+entries for each corruption by default.
+
 ## Included files
 
-- `imagenet_plus.py`, `imagenet_plusplus.py`: the two executable entries.
+- `imagenetc.py`, `imagenet_plus.py`, `imagenet_plusplus.py`: the three executable entries.
 - `protocol_common.py`: dataset ordering, class mapping, online metric, and reset protocol.
+- `metadata/`: small ImageNet-C sample-order and label-mapping files.
 - `moe_runtime.py`, `moe.py`, `inject_moe_1.py`, `adapter.py`: the MoE implementation.
 - `robustbench/model_zoo/`: only the ViT model implementation needed by this project.
 - `cfgs/vit/moe_new.yaml`: model and optimizer base settings.
