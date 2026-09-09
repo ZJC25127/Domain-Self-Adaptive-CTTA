@@ -46,17 +46,10 @@ Block。
 
 ### Checkpoint 的生成方式
 
-公开的 checkpoint 不是原始 ViT 权重，而是加入 MoE 后进行预热得到的模型：
-
-1. 以 ImageNet 预训练的 ViT-B/16 为基础，在每个 Transformer Block 的 MLP
-   中加入 MoE adapter 分支，同时保留原始 MLP 参数。
-2. 预热 checkpoint 中，每个 MLP 的 MoE 分支包含 2 个轻量级低秩专家和 1 个
-   router；原始 backbone 参数冻结，预热阶段主要训练新增的 MoE 参数。
-3. 在 ImageNet 训练集上进行预热训练，并每 2 个 epoch 保存一个 checkpoint。
-   当前公开的是预热过程中的 `epoch8` checkpoint。
-4. 在线测试时，slot 0 作为共享专家分支；检测到新域后，为该域启用一个新的
-   域自适应专家组。每个新域专家组同样包含 2 个轻量级专家、1 个 router 和
-   对应的噪声参数。代码预留 14 个域 slot，实际只使用已经检测到的 slot。
+为了初始化我们的专家模块，我们以 ImageNet 预训练的 ViT-B/16 为基础加入
+MoE，并在 ImageNet 训练集上进行若干个 epoch 的微调预热。得到的 checkpoint
+同时包含完整的源模型参数和预热后的专家模块。在线测试时，共享专家以及后续
+检测到新域后新增的域自适应专家，都从这个预热专家模块初始化。
 
 当前上传到 Hugging Face 的文件为：
 
@@ -66,15 +59,11 @@ vit_source_finetuned_imagenet_lr0.0001_freeze_True_epoch8_scalar10.0_.pt
 
 [下载 MoE 预热 checkpoint](https://huggingface.co/jianchao123/Domain-Self-Adaptive-CTTA/resolve/main/vit_source_finetuned_imagenet_lr0.0001_freeze_True_epoch8_scalar10.0_.pt)
 
-实验机上该文件的原始位置为：
+实验机上该 checkpoint 的原始位置为：
 
 ```text
 /data1/zjc/tta_datasets/checkpoints/imagenet/pretrain3/vit_source_finetuned_imagenet_lr0.0001_freeze_True_epoch8_scalar10.0_.pt
 ```
-
-论文中的 ImageNet-C FDD 实验检测到 7 个域，因此对应启用了 7 个域自适应
-专家组，另外保留共享专家分支。代码加载 checkpoint 时会将预热得到的 2 个
-专家参数复制到预留 slot，后续新域只启用对应的 slot。
 
 ## 数据准备
 
