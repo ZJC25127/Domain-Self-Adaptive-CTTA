@@ -94,8 +94,8 @@ are resized to 256, center-cropped to 224, and converted to tensors.
 
 The source checkpoint is not included. It must be supplied separately and
 should be the ViT-B/16 source checkpoint used by the experiments. The
-checkpoint will be hosted in the companion Hugging Face repository:
-`https://huggingface.co/ZJC25127/Domain-Self-Adaptive-CTTA`.
+checkpoint is hosted in the companion Hugging Face repository:
+[download the source checkpoint](https://huggingface.co/jianchao123/Domain-Self-Adaptive-CTTA/resolve/main/vit_source_finetuned_imagenet_lr0.0001_freeze_True_epoch8_scalar10.0_.pt).
 
 For ImageNet-C, also place the dataset at:
 
