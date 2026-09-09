@@ -1,0 +1,13 @@
+# Datasets, checkpoints, and experiment outputs are kept outside the repository.
+*.pt
+*.pth
+*.ckpt
+outputs/
+output_*/
+run.log
+results.json
+__pycache__/
+*.py[cod]
+
+# The published AAAI PDF may be subject to publisher copyright restrictions.
+05091-AAAI26.ZhaoJ-ML.pdf

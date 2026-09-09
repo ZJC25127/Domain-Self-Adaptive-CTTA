@@ -1,0 +1,22 @@
+MODEL:
+  ADAPTATION: moe
+  ARCH: Standard_VITB_MOE
+
+TEST:
+  BATCH_SIZE: 200
+  moe_rank: 32
+  moe_exp_num: 2
+  moe_router_num: 1
+  moe_top_k: 2
+  adapter_scalar: 10.0
+  moe_new: true
+
+OPTIM:
+  METHOD: Adam
+  STEPS: 1
+  BETA: 0.9
+  LR: 1.0e-5
+  MOELR: 1.0e-5
+  WD: 0.0
+  MT: 0.999
+  MT_MOE: 0.900

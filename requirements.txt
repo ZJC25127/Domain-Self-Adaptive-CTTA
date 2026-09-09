@@ -1,0 +1,8 @@
+# Tested environment: Python 3.9, CUDA 11.x, NVIDIA A800 80 GB.
+numpy==1.19.5
+Pillow==8.4.0
+PyYAML==6.0
+timm==0.4.12
+tqdm==4.56.2
+torch==1.10.0
+torchvision==0.11.1
