@@ -42,83 +42,41 @@ tqdm==4.56.2
 ## 模型 Checkpoint
 
 实验使用 ViT-B/16 模型，输入分辨率为 224，模型包含 12 个 Transformer
-Block。源模型 checkpoint 已上传到 Hugging Face：
+Block。
 
-[下载源模型 checkpoint](https://huggingface.co/jianchao123/Domain-Self-Adaptive-CTTA/resolve/main/vit_source_finetuned_imagenet_lr0.0001_freeze_True_epoch8_scalar10.0_.pt)
+### Checkpoint 的生成方式
 
-代码默认通过命令行参数接收 checkpoint 路径，不需要修改源码。
+公开的 checkpoint 不是原始 ViT 权重，而是加入 MoE 后进行预热得到的模型：
 
-## ImageNet-C
+1. 以 ImageNet 预训练的 ViT-B/16 为基础，在每个 Transformer Block 的 MLP
+   中加入 MoE adapter 分支，同时保留原始 MLP 参数。
+2. 预热 checkpoint 中，每个 MLP 的 MoE 分支包含 2 个轻量级低秩专家和 1 个
+   router；原始 backbone 参数冻结，预热阶段主要训练新增的 MoE 参数。
+3. 在 ImageNet 训练集上进行预热训练，并每 2 个 epoch 保存一个 checkpoint。
+   当前公开的是预热过程中的 `epoch8` checkpoint。
+4. 在线测试时，slot 0 作为共享专家分支；检测到新域后，为该域启用一个新的
+   域自适应专家组。每个新域专家组同样包含 2 个轻量级专家、1 个 router 和
+   对应的噪声参数。代码预留 14 个域 slot，实际只使用已经检测到的 slot。
 
-ImageNet-C 使用以下协议：
+当前上传到 Hugging Face 的文件为：
 
-- severity：5
-- 原始 15 类 corruption 顺序
-- 每类使用 5,000 张图片
-- batch size：50
-- 每个 batch 更新 1 步
-- 只在第一个 corruption 前 reset
-- 后续 corruption 之间不 reset
-
-运行命令：
-
-```bash
-CUDA_VISIBLE_DEVICES=0 python imagenetc.py \
-  --data_root /path/to/tta_datasets \
-  --checkpoint /path/to/source_checkpoint.pt \
-  --save_dir /path/to/results/imagenetc
+```text
+vit_source_finetuned_imagenet_lr0.0001_freeze_True_epoch8_scalar10.0_.pt
 ```
 
-默认使用 ImageNet-C 当前最佳配置。使用原始配置：
+[下载 MoE 预热 checkpoint](https://huggingface.co/jianchao123/Domain-Self-Adaptive-CTTA/resolve/main/vit_source_finetuned_imagenet_lr0.0001_freeze_True_epoch8_scalar10.0_.pt)
 
-```bash
---config original
+实验机上该文件的原始位置为：
+
+```text
+/data1/zjc/tta_datasets/checkpoints/imagenet/pretrain3/vit_source_finetuned_imagenet_lr0.0001_freeze_True_epoch8_scalar10.0_.pt
 ```
 
-可以使用 `--max_batches 1` 做快速连通性检查。完整结果会写入
-`save_dir/run.log` 和 `save_dir/results.json`。
+论文中的 ImageNet-C FDD 实验检测到 7 个域，因此对应启用了 7 个域自适应
+专家组，另外保留共享专家分支。代码加载 checkpoint 时会将预热得到的 2 个
+专家参数复制到预留 slot，后续新域只启用对应的 slot。
 
-## ImageNet+ 和 ImageNet++
-
-ImageNet+：
-
-```bash
-CUDA_VISIBLE_DEVICES=0 python imagenet_plus.py \
-  --data_root /path/to/tta_datasets \
-  --checkpoint /path/to/source_checkpoint.pt \
-  --save_dir /path/to/results/imagenet_plus
-```
-
-ImageNet++：
-
-```bash
-CUDA_VISIBLE_DEVICES=0 python imagenet_plusplus.py \
-  --data_root /path/to/tta_datasets \
-  --checkpoint /path/to/source_checkpoint.pt \
-  --save_dir /path/to/results/imagenet_plusplus
-```
-
-ImageNet+ 和 ImageNet++ 的默认 batch size 为 200，每个 batch 更新 1 步。
-使用 `--config original` 可以切换到原始配置。其他支持的参数可以通过重复
-使用 `--override KEY=VALUE` 传入。
-
-三个入口都使用单进程 `torch.nn.DataParallel`。双卡运行示例：
-
-```bash
-CUDA_VISIBLE_DEVICES=5,6 python imagenet_plusplus.py \
-  --data_root /path/to/tta_datasets \
-  --checkpoint /path/to/source_checkpoint.pt \
-  --save_dir /path/to/results/imagenet_plusplus
-```
-
-也可以通过环境变量设置路径：
-
-```bash
-export IMAGENET_DATA_ROOT=/path/to/tta_datasets
-export MOE_CHECKPOINT=/path/to/source_checkpoint.pt
-```
-
-## 数据目录结构
+## 数据准备
 
 `--data_root` 需要包含 ImageNet+、ImageNet++ 和 ImageNet-C 数据：
 
@@ -147,6 +105,60 @@ n01443537/
 
 ImageNet-C 的样本顺序和标签映射文件位于项目的 `metadata/` 目录中，代码会
 按照标准 ImageNet 验证集顺序读取样本，默认取每类 corruption 的前 5,000 张。
+
+## ImageNet-C
+
+ImageNet-C 使用 severity 5，按照原始 15 类 corruption 顺序依次处理。每类使用
+5,000 张图片，batch size 为 50，每个 batch 更新 1 步。只在第一个 corruption
+前 reset，后续 corruption 之间不 reset。
+
+运行命令：
+
+```bash
+CUDA_VISIBLE_DEVICES=0 python imagenetc.py \
+  --data_root /path/to/tta_datasets \
+  --checkpoint /path/to/vit_source_finetuned_imagenet_lr0.0001_freeze_True_epoch8_scalar10.0_.pt \
+  --save_dir /path/to/results/imagenetc
+```
+
+## ImageNet+ 和 ImageNet++
+
+ImageNet+：
+
+```bash
+CUDA_VISIBLE_DEVICES=0 python imagenet_plus.py \
+  --data_root /path/to/tta_datasets \
+  --checkpoint /path/to/vit_source_finetuned_imagenet_lr0.0001_freeze_True_epoch8_scalar10.0_.pt \
+  --save_dir /path/to/results/imagenet_plus
+```
+
+ImageNet++：
+
+```bash
+CUDA_VISIBLE_DEVICES=0 python imagenet_plusplus.py \
+  --data_root /path/to/tta_datasets \
+  --checkpoint /path/to/vit_source_finetuned_imagenet_lr0.0001_freeze_True_epoch8_scalar10.0_.pt \
+  --save_dir /path/to/results/imagenet_plusplus
+```
+
+ImageNet+ 和 ImageNet++ 的默认 batch size 为 200，每个 batch 更新 1 步。
+其他支持的参数可以通过重复使用 `--override KEY=VALUE` 传入。
+
+三个入口都使用单进程 `torch.nn.DataParallel`。双卡运行示例：
+
+```bash
+CUDA_VISIBLE_DEVICES=5,6 python imagenet_plusplus.py \
+  --data_root /path/to/tta_datasets \
+  --checkpoint /path/to/vit_source_finetuned_imagenet_lr0.0001_freeze_True_epoch8_scalar10.0_.pt \
+  --save_dir /path/to/results/imagenet_plusplus
+```
+
+也可以通过环境变量设置路径：
+
+```bash
+export IMAGENET_DATA_ROOT=/path/to/tta_datasets
+export MOE_CHECKPOINT=/path/to/vit_source_finetuned_imagenet_lr0.0001_freeze_True_epoch8_scalar10.0_.pt
+```
 
 当前图像预处理为：
 
