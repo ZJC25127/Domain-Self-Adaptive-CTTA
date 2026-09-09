@@ -12,6 +12,8 @@ Discrimination for Continual Test-Time Adaptation》的官方代码整理版。
 自适应（Continual Test-Time Adaptation, CTTA）。数据集和模型 checkpoint
 不包含在 GitHub 代码仓库中。
 
+![方法概览](image.png)
+
 ## 环境
 
 代码在以下环境中测试通过：
